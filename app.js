@@ -4,6 +4,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const date = require(__dirname + "/date.js");
 const mongoose = require('mongoose');
+const _ = require('lodash');
 
 const app = express();
 
@@ -13,6 +14,8 @@ mongoose.connect("mongodb://localhost:27017/ToDoListDB", {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
+
+mongoose.set('useFindAndModify', false);
 
 app.use(bodyParser.urlencoded({
   extended: true
@@ -62,7 +65,7 @@ app.get("/", function(req, res) {
 });
 
 app.get("/:customList", function(req, res) {
-  const customList = req.params.customList;
+  const customList = _.capitalize(req.params.customList);
 
   List.findOne({ name: customList }, function(err, foundList) {
     if (!err) {
@@ -85,11 +88,22 @@ app.get("/:customList", function(req, res) {
 
 app.post("/delete", function(req, res) {
   const checkeditem = req.body.checkedItem;
-  Item.findByIdAndRemove(checkeditem, function(err) {
-    if (!err) {
-      res.redirect("/");
-    };
-  });
+  const listName = req.body.checkedListName;
+
+  if(listName === "Today"){
+
+    Item.findByIdAndRemove(checkeditem, function(err) {
+      if (!err) {
+        res.redirect("/");
+      };
+    });
+  }else{
+    List.findOneAndUpdate({name : listName}, {$pull: {items: {_id : checkeditem}}}, function(err, foundList){
+      if(!err){
+        res.redirect("/" + listName);
+      }
+    })
+  }
 });
 
 app.post("/", function(req, res) {
